@@ -1,3 +1,7 @@
+/*
+Autor: Florian Schwarzl
+Kat. Nr: 21
+*/
 
 #include <iostream>
 #include <thread>
