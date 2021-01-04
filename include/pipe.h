@@ -16,7 +16,6 @@ Pipe-Klasse zur Kommunikation zwischen Threads
 template <typename T>
 class Pipe {
   private:
-  
     std::queue<T> backend;
     std::mutex mtx;
     std::condition_variable not_empty;
@@ -24,36 +23,22 @@ class Pipe {
     // Id des Workers, der der Empfaenger dieser Pipe ist
     int recipient;
   
-    bool closed{false};
   public:
     Pipe(int recipient_) {
         recipient = recipient_;
     }
-    Pipe& operator<<(T value) {
-        if (!closed) {
-            std::lock_guard lg{mtx};
-            backend.push(value);
-            not_empty.notify_one();
-        }
-        return *this;
+    void push_value(T value) {
+        std::lock_guard lg{mtx};
+        backend.push(value);
+        not_empty.notify_one();
     }
     
-    Pipe& operator>>(T& value) {
-        if (!closed) {
-            std::unique_lock ul{mtx};
-            not_empty.wait(ul, [this] { return backend.size(); });
-            value = backend.front();
-            backend.pop();
-        }
-        return *this;
-    }
-
-    void close() {
-        closed = true;
-    }
-    
-    explicit operator bool() {
-        return !closed;
+    T get_value() {
+        std::unique_lock ul{mtx};
+        not_empty.wait(ul, [this] { return backend.size(); });
+        T value = backend.front();
+        backend.pop();
+        return value;
     }
 
     int get_recipient() {

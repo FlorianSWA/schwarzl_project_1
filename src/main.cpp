@@ -6,6 +6,7 @@ Kat. Nr: 21
 #include <iostream>
 #include <thread>
 #include "worker.h"
+#include "utils.h"
 
 using namespace std;
 
@@ -13,7 +14,7 @@ using namespace std;
 int main() {
     const int max_threads{3};
     
-    thread thread_array[max_threads];
+    vector<thread> thread_vector;
     vector<Worker*> worker_vector;
     
     for (int i{0}; i < max_threads; i++) {
@@ -29,13 +30,12 @@ int main() {
     }
 
     for (int i{0}; i < max_threads; i++) {
-        thread_array[i] = thread(ref(*worker_vector[i]));
+        thread_vector.push_back(thread(ref(*worker_vector[i])));
     }
 
     for (int i{0}; i < max_threads; i++) {
-        thread_array[i].join();
+        thread_vector[i].join();
     }
-    
     for (int i{0}; i < max_threads; i++) {
         delete worker_vector[i];
     }
