@@ -19,6 +19,11 @@ void InboxHandler::operator()() {
     while (true) {
         if (ok_cnt == outboxes.size()) {
             //println(WorkerId, "all checked");
+            /*
+            Condition Variable durch Latch ersetzten, um Lost wakeup zu verhindern.
+            ODER
+            Weitere Bool Variable, die im wait abgefragt wird.
+            */
             can_enter->notify_one();
             ok_cnt = 0;
         }
