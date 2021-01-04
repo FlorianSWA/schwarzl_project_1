@@ -6,6 +6,7 @@ Datum: 2021-01-03
 #include <iostream>
 #include <chrono>
 #include <thread>
+#include <random>
 #include "worker.h"
 #include "utils.h"
 #include "pipe.h"
@@ -34,9 +35,13 @@ void Worker::send_to_all(MessageType type_, chrono::system_clock::time_point val
 void Worker::operator()() {
     InboxHandler* IbH{new InboxHandler(Id, &in_crit_section, &wants_to_enter, &can_enter, &inbox, outboxes)};
     thread IbH_thread(ref(*IbH));
+    random_device rd{};
+    mt19937 gen{rd()};
+    uniform_int_distribution<unsigned int> dis{3, 5};
     while (true) {
         wants_to_enter = false;
-        this_thread::sleep_for(5s);
+
+        this_thread::sleep_for(chrono::seconds(dis(gen)));
         wants_to_enter = true;
         chrono::system_clock::time_point timestamp{chrono::system_clock::now()};
         IbH->set_enter_timestamp(timestamp);
