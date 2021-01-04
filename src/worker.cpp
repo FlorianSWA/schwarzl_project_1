@@ -51,4 +51,5 @@ void Worker::operator()() {
         IbH->done();
     }
     IbH_thread.join();
+    delete IbH;
 }

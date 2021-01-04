@@ -16,6 +16,7 @@ InboxHandler::InboxHandler(int Id_,bool* in_crit_section_, bool* wants_to_enter_
 
 void InboxHandler::operator()() {
     vector<bool> checklist(outboxes.size(), false);
+    println(*wants_to_enter, *in_crit_section);
     while (true) {
         bool all_checked{true};
         for (size_t i{0}; i < checklist.size(); i++) {
@@ -29,16 +30,18 @@ void InboxHandler::operator()() {
             checklist = vector(outboxes.size(), false);
         }
         Message m{inbox->get_value()};
-        println("Worker ", WorkerId, " recieved Message ", m.toString());
+        println("Worker", WorkerId, "recieved Message", m.toString());
         if (m.get_message_type() == MessageType::REQ) {
+            println("Message Type REQ");
             if (!*wants_to_enter && !*in_crit_section) {
                 send_ok(m.get_sender());
-                println("Sent Ok form ", WorkerId, " to ", m.get_sender());
+                println("Sent Ok form", WorkerId, "to", m.get_sender());
             } else if (*wants_to_enter && !*in_crit_section) {
                 if (m.get_value() <= enter_timestamp) {
                     send_ok(m.get_sender());
                 } else {
                     mq.push(m);
+                    checklist[m.get_sender()] = true;
                 }
             }
         } else {
