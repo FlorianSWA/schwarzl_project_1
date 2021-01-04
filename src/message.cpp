@@ -34,6 +34,10 @@ int Message::get_recipient() {
     return recipient;
 }
 
+chrono::system_clock::time_point Message::get_value() {
+    return value;
+}
+
 MessageType Message::get_message_type() {
     return type;
 }

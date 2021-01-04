@@ -20,12 +20,11 @@ class Pipe {
     std::mutex mtx;
     std::condition_variable not_empty;
 
-    // Id des Workers, der der Empfaenger dieser Pipe ist
-    int recipient;
+    int owner;
   
   public:
-    Pipe(int recipient_) {
-        recipient = recipient_;
+    Pipe(int owner_) {
+        owner = owner_;
     }
     void push_value(T value) {
         std::lock_guard lg{mtx};
@@ -41,7 +40,11 @@ class Pipe {
         return value;
     }
 
-    int get_recipient() {
-        return recipient;
+    bool has_values() {
+        return backend.size();
+    }
+
+    int get_owner() {
+        return owner;
     }
 };

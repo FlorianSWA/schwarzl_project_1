@@ -29,6 +29,7 @@ class Message {
     Message(int sender_, int recipient_, MessageType mt, std::chrono::system_clock::time_point value_);
     int get_sender();
     int get_recipient();
+    std::chrono::system_clock::time_point get_value();
     MessageType get_message_type();
     std::string toString();
 };

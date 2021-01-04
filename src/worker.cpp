@@ -5,6 +5,7 @@ Datum: 2021-01-03
 
 #include <iostream>
 #include <chrono>
+#include <thread>
 #include "worker.h"
 #include "utils.h"
 #include "pipe.h"
@@ -25,17 +26,29 @@ Pipe<Message>* Worker::get_inbox() {
 void Worker::send_to_all(MessageType type_, chrono::system_clock::time_point value_) {
     
     for (size_t i{0}; i < outboxes.size(); i++) {
-        outboxes[i]->push_value(Message(Id, outboxes[i]->get_recipient(), type_, value_));
+        outboxes[i]->push_value(Message(Id, outboxes[i]->get_owner(), type_, value_));
     }
     
 }
 
 void Worker::operator()() {
-    
-    println("Worker: ", Id);
-    send_to_all(MessageType::REQ, chrono::system_clock::now());
+    InboxHandler* IbH{new InboxHandler(Id, &in_crit_section, &wants_to_enter, &can_enter, &inbox, outboxes)};
+    thread IbH_thread(ref(*IbH));
     while (true) {
-        Message m{inbox.get_value()};
-        println("Worker: ", to_string(Id), " -- recieved Message: ", m.toString());
+        wants_to_enter = false;
+        this_thread::sleep_for(5s);
+        wants_to_enter = true;
+        chrono::system_clock::time_point timestamp{chrono::system_clock::now()};
+        IbH->set_enter_timestamp(timestamp);
+        send_to_all(MessageType::REQ, timestamp);
+        unique_lock ul{mtx};
+        can_enter.wait(ul);
+        in_crit_section = true;
+        println("Worker ", Id, " entered critical section.");
+        this_thread::sleep_for(4s);
+        in_crit_section = false;
+        println("Worker ", Id, " left critical section.");
+        IbH->done();
     }
+    IbH_thread.join();
 }
