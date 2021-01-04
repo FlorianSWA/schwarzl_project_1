@@ -34,7 +34,8 @@ void Worker::operator()() {
     
     println("Worker: ", Id);
     send_to_all(MessageType::REQ, chrono::system_clock::now());
-    Message m{inbox.get_value()};
-    println("Worker: ", to_string(Id), " -- recieved Message: ", m.toString());
-    
+    while (true) {
+        Message m{inbox.get_value()};
+        println("Worker: ", to_string(Id), " -- recieved Message: ", m.toString());
+    }
 }
