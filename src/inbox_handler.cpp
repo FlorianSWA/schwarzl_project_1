@@ -71,3 +71,11 @@ void InboxHandler::done() {
 void InboxHandler::set_enter_timestamp(std::chrono::system_clock::time_point tp) {
     enter_timestamp = tp;
 }
+
+void InboxHandler::add_outbox(Pipe<Message>* sender_) {
+    outboxes.push_back(sender_);
+}
+
+Pipe<Message>* InboxHandler::get_inbox() {
+    return inbox;
+}

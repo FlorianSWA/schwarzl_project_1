@@ -25,6 +25,12 @@ class InboxHandler {
   public:
     InboxHandler(int Id_, bool* in_crit_section_, bool* wants_to_enter_, std::condition_variable* con_var, Pipe<Message>* inbox_, std::vector<Pipe<Message>*> outboxes_);
     void operator()();
+    
+    // Outbox eines anderen Workers zum Vektor hinzufuegen
+    void add_outbox(Pipe<Message>* sender_);
+
+    // Liefert die Inbox dieses Workers
+    Pipe<Message>* get_inbox();
     void set_enter_timestamp(std::chrono::system_clock::time_point tp);
     void done();
 
