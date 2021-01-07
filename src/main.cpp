@@ -16,7 +16,7 @@ int main(int argc, char* argv[]) {
 
     unsigned int worker_cnt{3};
 
-    app.add_option("--workers, -w", worker_cnt, "Anzahl der Worker der Simulation (Standardwert: 3).");
+    app.add_option("workers", worker_cnt, "Anzahl der Worker der Simulation (Standardwert: 3).");
 
     CLI11_PARSE(app, argc, argv);
     
@@ -24,7 +24,7 @@ int main(int argc, char* argv[]) {
     vector<Worker*> worker_vector;
     
     for (unsigned int i{0}; i < worker_cnt; i++) {
-        worker_vector.push_back(new Worker(i, worker_cnt));
+        worker_vector.push_back(new Worker(i));
     }
     
     for (unsigned int i{0}; i < worker_cnt; i++) {

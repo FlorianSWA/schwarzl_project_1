@@ -9,42 +9,32 @@ Worker-Klasse, in der der Algorithmus implementiert wird.
 #pragma once
 
 #include <vector>
-#include "inbox_handler.h"
+#include "message_handler.h"
 #include "pipe.h"
 #include "message.h"
 
 
 class Worker {
   private:
+    // Id des Workers
     int Id;
-    int total_workers;
     bool in_crit_section{false};
     bool wants_to_enter{false};
-    //InboxHandler IbH;
+    bool got_all_ok{false};
+    MessageHandler mh;
     std::mutex mtx;
     std::condition_variable can_enter;
 
-    // Alle Nachrichten an den Worker werden in seine Inbox geschrieben
-    Pipe<Message> inbox;
-
-    // Enthaelt Zeiger zu den Inboxen der anderen Worker
-    std::vector<Pipe<Message>*> outboxes;
-
-    // Sendet eine Nachricht an alle Worker, die in Outboxes angelegt sind
-    void send_to_all(MessageType type_, std::chrono::system_clock::time_point value_);
-
   public:
-    Worker(int Id_, int total_workers_) :  inbox(Id_) {
-    Id = Id_;
-    total_workers = total_workers_;
-};
+    Worker(int Id_) : mh(Id_, &in_crit_section, &wants_to_enter, &got_all_ok, &can_enter) {
+        Id = Id_;
+    };
 
-    // Outbox eines anderen Workers zum Vektor hinzufuegen
+    // Inbox eines anderen Workers zum Vektor hinzufügen
     void add_outbox(Pipe<Message>* sender_);
 
     // Liefert die Inbox dieses Workers
     Pipe<Message>* get_inbox();
 
     void operator()();
-
 };

@@ -39,7 +39,7 @@ add_global_arguments('-I' + get_option('cli11_include_dir'), language : 'cpp')
 # subdir('SUBDIR1')
 
 inc_dir = include_directories(['include', get_option('cli11_include_dir')])
-src = ['src/main.cpp', 'src/worker.cpp', 'src/utils.cpp', 'src/message.cpp', 'src/inbox_handler.cpp']
+src = ['src/main.cpp', 'src/worker.cpp', 'src/utils.cpp', 'src/message.cpp', 'src/message_handler.cpp']
 #protobuf: src = ['src/main.cpp', generated]
 
 executable('dist_sync',
