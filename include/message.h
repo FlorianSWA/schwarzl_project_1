@@ -12,9 +12,9 @@ Message-Klasse, welche die Requests und Responses repraesentiert
 #include <string>
 
 enum class MessageType {
-    REQ,
-    OK,
-    NONE
+    REQ = 1,
+    OK = 2,
+    NONE = 0
 };
 
 class Message {
@@ -24,7 +24,6 @@ class Message {
     MessageType type{MessageType::NONE};
     std::chrono::system_clock::time_point value;
   public:
-    Message();
     Message(int sender_, int recipient_, MessageType mt);
     Message(int sender_, int recipient_, MessageType mt, std::chrono::system_clock::time_point value_);
     int get_sender();

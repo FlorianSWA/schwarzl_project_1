@@ -16,7 +16,10 @@ add_global_arguments('-DASIO_NO_DEPRECATED', language : 'cpp')
 add_global_arguments('-I' + get_option('cli11_include_dir'), language : 'cpp')
 
 # spdlog: https://github.com/gabime/spdlog
-#add_global_arguments('-I' + get_option('spdlog_include_dir'), language : 'cpp')
+add_global_arguments('-I' + get_option('spdlog_include_dir'), language : 'cpp')
+
+# magic_enum: https://github.com/Neargye/magic_enum
+add_global_arguments('-I' + get_option('magic_enum_include_dir'), language : 'cpp')
 
 # json: https://github.com/nlohmann/json
 #add_global_arguments('-I' + get_option('json_include_dir'), language : 'cpp')
@@ -39,7 +42,7 @@ add_global_arguments('-I' + get_option('cli11_include_dir'), language : 'cpp')
 # subdir('SUBDIR1')
 
 inc_dir = include_directories(['include', get_option('cli11_include_dir')])
-src = ['src/main.cpp', 'src/worker.cpp', 'src/utils.cpp', 'src/message.cpp', 'src/message_handler.cpp']
+src = ['src/main.cpp', 'src/worker.cpp', 'src/message.cpp', 'src/message_handler.cpp']
 #protobuf: src = ['src/main.cpp', generated]
 
 executable('dist_sync',

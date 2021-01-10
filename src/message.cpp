@@ -6,12 +6,12 @@ Beschreibung:
 Message-Klasse, welche die Requests und Responses repraesentiert
 */
 
-#include "message.h"
 #include <string>
+#include "message.h"
+#include "magic_enum.hpp"
+
 
 using namespace std;
-
-Message::Message() {}
 
 Message::Message(int sender_, int recipient_, MessageType mt) {
     sender = sender_;
@@ -43,5 +43,11 @@ MessageType Message::get_message_type() {
 }
 
 string Message::toString() {
-    return "Message(sender=" + to_string(sender) + ", recipient=" + to_string(recipient) + ")";
+    string enum_string{magic_enum::enum_name(type)};
+    if (type == MessageType::REQ) {
+        return "Message(sender=" + to_string(sender) + ", recipient=" + to_string(recipient) + "type=" + enum_string + ", value=" + to_string(chrono::system_clock::to_time_t(value)) +")";
+    } else {
+        return "Message(sender=" + to_string(sender) + ", recipient=" + to_string(recipient) + "type=" + enum_string + ")";
+    }
+    
 }

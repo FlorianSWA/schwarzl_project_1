@@ -1,32 +1,28 @@
 
 #include <vector>
-#include "utils.h"
 #include "message_handler.h"
 
 using namespace std;
 
-MessageHandler::MessageHandler(int Id_, bool* in_crit_section_, bool* wants_to_enter_, bool* got_all_ok_, condition_variable* can_enter_) : inbox(Id_) {
+MessageHandler::MessageHandler(int Id_, bool* in_crit_section_, bool* wants_to_enter_, bool* got_all_ok_, condition_variable* can_enter_, shared_ptr<spdlog::logger> logger) : inbox(Id_) {
     WorkerId = Id_;
     can_enter = can_enter_;
     in_crit_section = in_crit_section_;
     wants_to_enter = wants_to_enter_;
     got_all_ok = got_all_ok_;
+    file_logger = logger;
 }
 
 void MessageHandler::operator()() {
     unsigned int ok_cnt{0};
     while (true) {
         if (ok_cnt == outboxes.size()) {
-            /*
-            Condition Variable durch Latch ersetzten, um Lost wakeup zu verhindern.
-            ODER
-            Weitere Bool Variable, die im wait abgefragt wird.
-            */
             can_enter->notify_one();
             *got_all_ok = true;
             ok_cnt = 0;
         }
         Message m{inbox.get_value()};
+        file_logger->info("Worker {} recieved Message {}", WorkerId, m.toString());
         if (m.get_sender() != WorkerId) {
             if (m.get_message_type() == MessageType::REQ) {
                 if (!*wants_to_enter && !*in_crit_section) {
