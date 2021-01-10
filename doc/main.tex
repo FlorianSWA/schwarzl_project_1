@@ -98,25 +98,39 @@ Diese Klasse stellt eine Nachricht dar. Sie enthält Sowohl die Nummer des Sende
 Der Wert einer Nachricht ist der Zeitstempel, den der Worker beim Erstellen des Requests festlegt.
 
 \subsection{Worker-Klasse}
-In dieser Klasse ist jener Teil des Algorithmus implementiert, der sich mit der zeitlichen Regelung befasst. Das heißt, in dieser Klasse wird durch eine Zufallsvariable zwischen 3 und 5 Sekunden festgelegt, wann der Knoten in den kritischen Abschnitt eintreten will und wie lange er in diesem verbleibt. Zur Simulation des kritischen Abschnitts wird der Thread, in dem sich der Worker befindet, schlafen gelegt. Dieser Ablauf läuft in einer Endlosschleife, so dass sich die Simulation immer wieder wiederholt.
+In dieser Klasse ist jener Teil des Algorithmus implementiert, der sich mit der zeitlichen Regelung befasst. Das heißt, in dieser Klasse wird durch eine Zufallsvariable zwischen 3 und 5 Sekunden festgelegt, wann der Knoten in den kritischen Abschnitt eintreten will und wie lange er in diesem verbleibt. Zur Simulation des kritischen Abschnitts wird der Thread, in dem sich der Worker befindet, schlafen gelegt. Dieser Ablauf läuft in einer Endlosschleife, so dass sich die Simulation immer wieder wiederholt. Die Worker-Klasse hat zwei bool'sche Variablen, die ihren Status beschreiben. Diese zwei Variablen beschreiben, ob der Knoten in den kritischen Abschnitt eintreten will und ob er sich gerade in diesem befindet. Sie sind notwendig, um diese Information dem MessageHandler mitzuteilen. Dieser muss, je nach dem, in welchem Zustand sich der Worker befindet, die eingehenden Nachrichten anders behandeln.
+
 
 \begin{minipage}{\linewidth}
 \begin{lstlisting}[language=C++, caption=Zeitliche Regelung]
 wants_to_enter = false;
-this_thread::sleep_for(chrono::milliseconds(int (dis(gen)*1000)));
+fmt::print("Worker {} no longer wants to enter critical section\n", Id);
+this_thread::sleep_for(chrono::milliseconds(int (dis(gen) * 1000)));
+fmt::print("Worker {} wants to enter critical section.\n", Id);
 wants_to_enter = true;
 
 chrono::system_clock::time_point timestamp{chrono::system_clock::now()};
 mh.set_enter_timestamp(timestamp);
 mh.send_to_all(MessageType::REQ, timestamp);
+fmt::print(fg(fmt::color::blue), "Worker {} sent a Request with Timestamp {:%H:%M:%S} to all other Workers.\n", Id, timestamp);
+
+unique_lock ul{mtx};
+can_enter.wait(ul, [this] { return got_all_ok; });
+in_crit_section = true;
+got_all_ok = false;
+fmt::print(fg(fmt::color::gold), "Worker {} entered critical section.\n", Id);
+this_thread::sleep_for(4s);
+fmt::print(fg(fmt::color::gold), "Worker {} left critical section.\n", Id);
+in_crit_section = false;
+mh.done();
 
 \end{lstlisting}
 \end{minipage}
 
-Die Worker-Klasse hat zwei bool'sche Variablen, die ihren Status beschreiben. Diese zwei Variablen beschreiben, ob der Knoten in den kritischen Abschnitt eintreten will und ob er sich gerade in diesem befindet. Sie sind notwendig, um diese Information dem MessageHandler mitzuteilen. Dieser muss, je nach dem, in welchem Zustand sich der Worker befindet, die eingehenden Nachrichten anders behandeln.
+Im vorhergehenden Code-Beispiel ist der in einer Endlosschleife laufende Code des Worker-Threads dargestellt. Zu Beginn eines Durchlaufs will Worker nicht in den kritischen Abschnitt eintreten und wartet eine zufällige Zeitspanne zwischen 3 und 5 Sekunden ab (Zeile 3). Nach dieser Pause will der Worker in den Abschnitt eintreten und erstellt sich einen Zeitstempel für die Anfrage, die er dann über den MessageHandler (welcher hier die Variable mh ist) an die anderen Knoten weitergeleitet. Danach wird in 
 
 \subsection{MessageHandler-Klasse}
-Diese Klasse ist, als Thread gestartet, für die Verwaltung der Nachrichten eines Workers zuständig. Diese Klasse beinhaltet eine Pipe, die für die eingehenden Nachrichten verwendet wird und als "Inbox" bezeichnet wird. Um mit den anderen Knoten zu kommunizieren, hat jede Instanz der Klasse einen Vektor mit einer Referenz auf die Pipes der jeweils anderen Knoten.
+Diese Klasse ist, als Thread gestartet, für die Verwaltung der Nachrichten eines Workers zuständig. Diese Klasse beinhaltet eine Pipe, die für die eingehenden Nachrichten verwendet wird und als Inbox bezeichnet wird. Um mit den anderen Knoten zu kommunizieren, hat jede Instanz der Klasse einen Vektor mit einer Referenz auf die Pipes der jeweils anderen Knoten.
 
 \begin{minipage}{\linewidth}
 \begin{lstlisting}[language=C++, caption=Inbox und Outbox]
@@ -129,7 +143,32 @@ std::vector<Pipe<Message>*> outboxes;
 \end{lstlisting}
 \end{minipage}
 
-In dieser Klasse wird auch der Ablauf implementiert, wie er zuvor in \ref{ablauf} Ablauf beschrieben wurde. Der Status des Workers, also ob er in den kritischen Abschnitt eintreten will oder nicht, wird dem MessageHandler durch zwei Pointer vom Typ bool mitgeteilt. Bei jedem Durchgang dieses Ablaufs wird eine Nachricht aus der Inbox entnommen und bearbeitet. Je nach Status wird dann entweder eine Antwort gesendet, oder die Nachricht in der Warteschlange gespeichert.
+In die Inbox werden alle Nachrichten geschrieben, die an diesen Knoten gerichtet sind. Somit schreiben in die Inbox immer die anderen Knoten und nur jener, dem die Inbox gehört, liest aus dieser aus.
+
+In dieser Klasse wird auch der Ablauf implementiert, wie er zuvor in \ref{ablauf} Ablauf beschrieben wurde. Der Status des Workers, also ob er in den kritischen Abschnitt eintreten will oder nicht, wird dem MessageHandler durch zwei Pointer vom Typ bool mitgeteilt. Bei jedem Durchgang dieses Ablaufs wird eine Nachricht aus der Inbox entnommen und bearbeitet. Je nach Status wird dann entweder eine Antwort gesendet, oder die Nachricht in der Warteschlange gespeichert. Der gesamte Ablauf läuft in einer Endlosschleife.
+
+\begin{minipage}{\linewidth}
+\begin{lstlisting}[language=C++, caption=Bearbeitung einer Nachricht]
+if (m.get_message_type() == MessageType::REQ) {
+    if (!*wants_to_enter && !*in_crit_section) {
+        send_ok(m.get_sender());
+    } else if (*wants_to_enter && !*in_crit_section) {
+        if (m.get_value() < enter_timestamp) {
+            send_ok(m.get_sender());
+        } else {
+            mq.push(m);
+        }
+    } else if (*in_crit_section) {
+        mq.push(m);
+    }
+} else if (m.get_message_type() == MessageType::OK){
+    ok_cnt++;
+}
+\end{lstlisting}
+\end{minipage}
+Dieser Abschnitt an Code aus der MessageHandler-Klasse entspricht dem zweiten Punkt des Ablaufs des Algorithmus. Er wird nach jeder erhaltenen Nachricht ausgeführt. Zuerst wird überprüft, ob es sich bei der eingetroffenen Nachricht um eine Anfrage oder eine Bestätigung handelt. Ist es eine Bestätigung, wird der Zähler für die Bestätigungen inkrementiert. Anhand dieses Zählers wird festgestellt, ob ein Knoten in den kritischen Abschnitt eintreten darf. Er darf dies nämlich sobald er von jedem anderen Knoten ein OK erhalten hat, also sobald er \( n-1 \) Antworten erhalten hat, wobei n die Gesamtanzahl de Knoten ist. Sollte es sich um eine Anfrage handeln, wird der Algorithmus abgearbeitet. Zuerst wird in Zeile 2 der Fall überprüft, dass der Knoten weder in den kritischen Abschnitt eintreten will, noch sich in diesem befindet. In diesem Fall wird eine Bestätigung an den Sender zurückgeschickt (siehe Zeile 4). Sollte der Knoten in den kritischen Abschnitt eintreten wollen, sich jedoch nicht in diesem befinden, wird die zweite Bedingung in der Zeile 5 ausgelöst. In diesem Fall wird der eigene Zeitstempel mit jenem aus der angekommenen Nachricht verglichen. Ist der eingehende Zeitstempel kleiner, wird eine Bestätigung an den Sender gesendet, andernfalls wird die Anfrage in der Warteschlange gespeichert. Sollte sich der Knoten zum Zeitpunkt des Eintreffens der Nachricht im kritischen Abschnitt befinden, wird diese ebenfalls in der Warteschlange gespeichert.
+
+Die Warteschlange wird durch den Aufruf der Methode \verb|done()| abgearbeitet. Sobald der Worker aus dem kritischen Abschnitt austritt, ruft dieser die Methode auf und der MessageHandler sendet an jede in der Warteschlange gespeicherte Nachricht eine Bestätigung zurück.
 
 \section{Bedienung}
 Das Programm kann nur durch den Aufruf von \verb|./dist_sync| gestartet werden. Die Anzahl der Knoten ist dabei standardmäßig auf 3 gesetzt. Beendet wird das Programm durch Tastaturunterbrechung \verb|(Ctrl + C)|. Als Ausgabe in der Konsole erschienen verschiedene Statusmeldungen, die angeben, was derzeit im Programm passiert und welcher Knoten sich im kritischen Abschnitt befindet. In der nachfolgenden Tabelle sind alle Parameter angegeben:
