@@ -19,6 +19,7 @@ void MessageHandler::operator()() {
         if (ok_cnt == outboxes.size()) {
             can_enter->notify_one();
             *got_all_ok = true;
+            file_logger->info("Worker {} can enter critical section.", WorkerId);
             ok_cnt = 0;
         }
         Message m{inbox.get_value()};
@@ -26,15 +27,20 @@ void MessageHandler::operator()() {
         if (m.get_sender() != WorkerId) {
             if (m.get_message_type() == MessageType::REQ) {
                 if (!*wants_to_enter && !*in_crit_section) {
+                    file_logger->debug("Worker {} doesn't want to enter and is not in crit section. Sent OK Response to Worker {}.", WorkerId, m.get_sender());
                     send_ok(m.get_sender());
                 } else if (*wants_to_enter && !*in_crit_section) {
+                        file_logger->debug("Worker {} wants to enter and is not in crit section. Comparing timestamp values.");
                     if (m.get_value() < enter_timestamp) {
+                        file_logger->debug("Worker {} sends OK Response to Worker {}. Incoming timestamp is smaller.", WorkerId, m.get_sender());
                         send_ok(m.get_sender());
                     } else {
                         mq.push(m);
+                        file_logger->debug("Worker {} put Request from Worker {} in queue. Incoming timestamp is greater.", WorkerId, m.get_sender());
                     }
                 } else if (*in_crit_section) {
                     mq.push(m);
+                    file_logger->debug("Worker {} is in crit section. Put Request from Worker {} in queue.", WorkerId, m.get_sender());
                 }
             } else if (m.get_message_type() == MessageType::OK){
                 ok_cnt++;

@@ -17,18 +17,19 @@ using namespace std;
 
 
 int main(int argc, char* argv[]) {
-    CLI::App app("Simuliert den verteilten Algorithmus zur Synchronisation");
+    CLI::App app("Simulate the distributed algorithm for synchronization");
 
     unsigned int worker_cnt{3};
     bool use_logging{false};
     bool log_level_debug{false};
 
-    app.add_option("workers", worker_cnt, "Anzahl der Worker der Simulation (Standardwert: 3).")->check(CLI::NonNegativeNumber);
-    app.add_flag("-l, --log", use_logging, "Logging verwenden und in log.txt schreiben.");
+    app.add_option("workers", worker_cnt, "Number of Nodes (default = 3).")->check(CLI::NonNegativeNumber);
+    auto log_flag{app.add_flag("-l, --log", use_logging, "Write log file dist_sync_log.log")};
+    app.add_flag("-d, --debug", log_level_debug, "Set log level to debug.")->needs(log_flag);
 
     CLI11_PARSE(app, argc, argv);
 
-    shared_ptr<spdlog::logger> file_logger{spdlog::basic_logger_mt("basic_logger", "./log.txt")};
+    shared_ptr<spdlog::logger> file_logger{spdlog::basic_logger_mt("basic_logger", "./dist_sync_log.log")};
 
     if (use_logging) {
         if (log_level_debug) {
@@ -47,7 +48,10 @@ int main(int argc, char* argv[]) {
     vector<Worker*> worker_vector;
 
     file_logger->info("Started simulation with {} Worker Threads", worker_cnt);
-    fmt::print(fg(fmt::color::dark_green) | fmt::emphasis::bold, "Started simulation with {} Worker Threads.\n\n", worker_cnt);
+    file_logger->info("Options: --log {}, --debug: {}", use_logging, log_level_debug);
+    fmt::print(fg(fmt::color::dark_green) | fmt::emphasis::bold
+              , "Started simulation with {} Worker Threads.\nOptions: --log: {}, --debug: {}\n\n"
+              , worker_cnt, use_logging, log_level_debug);
 
     for (unsigned int i{0}; i < worker_cnt; i++) {
         worker_vector.push_back(new Worker(i, file_logger));

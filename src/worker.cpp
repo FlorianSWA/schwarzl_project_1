@@ -35,22 +35,27 @@ void Worker::operator()() {
     while (true) {
         wants_to_enter = false;
         fmt::print("Worker {} no longer wants to enter critical section\n", Id);
+        file_logger->info("Worker {} no longer wants to enter critical section", Id);
         this_thread::sleep_for(chrono::milliseconds(int (dis(gen) * 1000)));
         fmt::print("Worker {} wants to enter critical section.\n", Id);
+        file_logger->info("Worker {} wants to enter critical section.");
         wants_to_enter = true;
 
         chrono::system_clock::time_point timestamp{chrono::system_clock::now()};
         mh.set_enter_timestamp(timestamp);
         mh.send_to_all(MessageType::REQ, timestamp);
         fmt::print(fg(fmt::color::blue), "Worker {} sent a Request with Timestamp {:%H:%M:%S} to all other Workers.\n", Id, timestamp);
+        file_logger->info("Worker {} sent Request  to all other Workers",Id);
 
         unique_lock ul{mtx};
         can_enter.wait(ul, [this] { return got_all_ok; });
         in_crit_section = true;
         got_all_ok = false;
         fmt::print(fg(fmt::color::gold), "Worker {} entered critical section.\n", Id);
+        file_logger->info("Worker {} entered critical section.", Id);
         this_thread::sleep_for(4s);
         fmt::print(fg(fmt::color::gold), "Worker {} left critical section.\n", Id);
+        file_logger->info("Worker {} left critical section.", Id);
         in_crit_section = false;
         mh.done();
     }
