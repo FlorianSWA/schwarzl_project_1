@@ -5,9 +5,12 @@ Dieses Projekt simuliert den verteilten Algorithmus zur Synchronisation lokal in
 Das Programm wird durch den Aufruf von `./dist_sync` auf der Kommandozeile gestartet. Bei einem Aufruf ohne Parameter startet das Progamm **standardmäßig mit 3 Worker-Threads**.
 
 ### Parameter
-Als optionaler Parameter kann dem Programm die Anzahl der zu erstellenden Worker Threads angegeben werden. die Anzahl muss dabei eine **positive Zahl** sein. Sollte 0 als Parameter übergeben werden, startet das Programm keine weiteren Threads und beendet sich somit wieder. Dieses Verhalten ist erwartet und beabsichtigt.
-
-Das Programm kann auch mit `./dist_sync -h` oder `./dist_sync --help` gestartet werden. Bei einem Aufruf mit dieser Flag wird der Hilfetext des Programms ausgegeben.
+| Parametername | Datentyp        | Standardwert | Beschreibung |
+| ------------- | --------------- | ------------ | ------------ |
+|               | ganze Zahl >= 0 | 3            | Anzahl der Knoten, Standardwert: 3 |
+| -h, --help    |                 |              | Gibt die Hilfe aus |
+| -l, --log     |                 | false        | Aktiviert Logging nach dist_sync_log.log |
+| -d, --debug   |                 | false        | Setzt Log-Level auf debug, nur mit -l verwendbar |
 
 ## Algorithmus
 Wie schon zuvor erwähnt Simuliert dieses Programm den verteilten Algorithmus zur Synchronisation. Das ausschlaggebende bei diesem Algorithmus sit, dass es keinen zentralen Koordinator gibt. Die Reihenfolge wird stattdessen über folgenden Ablauf festgelegt:
@@ -17,3 +20,9 @@ Wie schon zuvor erwähnt Simuliert dieses Programm den verteilten Algorithmus zu
     * Befindet er sich _im kritischen Abschnitt_: Request in einer Warteschlange speichern.
     * Befindet er sich _nicht im kritischen Abschnitt, will diesen aber betreten_: Zeitstempel des Request mit jenem des eigenen Requests vergleichen. Ist der eingehende Zeitstempel kleiner, wird OK an den Sender zurückgesendet, andernfalls wird der Request in der Warteschlange gespeichert.
 3. Verlässt der Teilnehmer den kritischen Abschnitt, entnimmt er alle gespeicherten Requests aus der Warteschlange und sendet ein OK an den jeweiligen Sender zurück.
+
+## Verwendete Bibliotheken
+* [CLI11](https://github.com/CLIUtils/CLI11)
+* [spdlog](https://github.com/gabime/spdlog)
+* [fmt](https://github.com/fmtlib/fmt)
+* [magic enum](https://github.com/Neargye/magic_enum)
