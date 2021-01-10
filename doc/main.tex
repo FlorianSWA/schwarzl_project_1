@@ -1,0 +1,157 @@
+\documentclass{article}
+%encoding
+%--------------------------------------
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{listings}
+\usepackage{xcolor}
+
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2
+}
+
+\lstset{style=mystyle}
+%--------------------------------------
+
+%German-specific commands
+%--------------------------------------
+\usepackage[ngerman]{babel}
+%--------------------------------------
+
+%Hyphenation rules
+%--------------------------------------
+\usepackage{hyphenat}
+\hyphenation{Mathe-matik wieder-gewinnen}
+\usepackage{lipsum}
+%--------------------------------------
+\begin{document}
+\pagenumbering{gobble}
+\clearpage
+\thispagestyle{empty}
+\author{Florian Schwarzl}
+\date{10. Januar 2021}
+\title{NVS Projekt: Synchronisation durch den verteilten Algorithmus}
+\maketitle
+\clearpage
+\pagenumbering{arabic}
+\tableofcontents
+\newpage
+
+\section{Einleitung}
+Die Synchronisation eines Ablaufs, welcher auf mehreren Systemen verteilt abgearbeitet wird, ist ein essentieller Teil moderner Softwareentwicklung. Durch die immer näher Rückende Grenze der Hardware-Leistung müssen Programme, um trotz zunehmender Komplexität eine kurze Laufzeit zu erreichen, parallelisiert werden. Beim Bearbeiten einer Aufgabe gibt es jedoch meist Abschnitte, die nicht parallel abgearbeitet werden können. Beispielsweise das Zusammenführen der Ergebnisse. Damit es in eben diesen kritischen Abschnitten zu keiner Race-Condition\footnote{Ergebnis der Operation ist vom zeitlichen Ablauf abhängig.} oder ähnlichen Problemszenarien kommt, ist eine Möglichkeit des gegenseitigen Ausschlusses (Engl.: mutual exclusion) notwendig. Dadurch kann sichergestellt werden, dass keine zwei Knoten des verteilten Systems zeitgleich in einen kritischen Abschnitt eintreten.
+Diese Ausarbeitung befasst sich mit diesem Problem und im spezifischen mit dem Lösungsansatz der verteilten Synchronisation und wie dieser im beiliegenden Programm umgesetzt wurde.
+
+\section{Algorithmus}
+Der Synchronisationsalgorithmus, welcher hier implementiert wurde, ist jener von Glen Ricart und Ashok K. Agrawala\cite{Ricart}. Er beschreibt einen dezentralen Ansatz zum gegenseitigen Ausschluss in einem verteilten Computersystem. Dezentral bedeutet in diesem Zusammenhang, dass, anders als bei einem zentralen Algorithmus, es eben keinen zentralen Koordinator gibt, welcher sich um die Synchronisation kümmert, sondern sich die Knoten untereinander die Reihenfolge des Eintritts in den kritischen Abschnitt ausmachen.
+
+Der Algorithmus basiert auf einem System von Anfrage- und Antwortnachrichten, welche von jedem Knoten an jeden anderen Knoten gesendet werden können. Dadurch entsteht die Notwendigkeit, dass jeder Knoten mit jedem anderen Kommunizieren kann. In weiterer Folge muss jeder Knoten eine Liste aller anderen Knoten halten, anders als bei einem zentralisierten Algorithmus, wo nur der zentrale Koordinator alle Knoten kennen muss.
+
+\subsection{Vorteile und Nachteile}
+Ein offensichtlicher Vorteil jedes verteilten Algorithmus ist, dass es keinen single-point-of-failure gibt. Der Algorithmus selbst hat zwar keine Ausfallserkennung eingebaut, diese kann jedoch beispielsweise durch ein Timeout nach einer bestimmten Zeit realisert werden.
+
+Ein Nachteil dieses Algorithmus ist einerseits, dass er komplizierter zu Implementieren ist. Da jeder Knoten gleichrangig ist, ist deutlich mehr Aufwand notwendig, um zu einem gegenseitigen Ausschluss zu kommen. Auch ist die Anzahl der Nachrichten ein Problem, da dadurch die Skalierbarkeit verschlechtert wird. In einem System mit n Knoten fallen für jeden Knoten, der den kritischen Abschnitt betreten will \( 2 * (n - 1) \) Nachrichten an. Es werden \(n - 1\) Anfragenachrichten versendet und ebenfalls \( (n - 1) \) Antwortnachrichten empfangen.\cite{Ricart}
+
+\subsection{Ablauf}\label{ablauf}
+Der Ablauf des Algorithmus basiert darauf, dass jeder Knoten eine eigene logische Uhr, mit deren Hilfe jede Nachricht mit einem Zeitstempel versehen wird. Dieser Zeitstempel wird zum Vergleich der Nachrichten herangezogen und legt damit indirekt fest, welcher Knoten zuerst in den kritischen Abschnitt eintreten darf. Anstatt des Zeitstempels könnte auch eine zufällig generierte Zahl verwendet werden, die Verwendung des Zeitstempels sorgt jedoch dafür, dass jene Knoten, welche die Nachricht zuerst gesendet haben, auch wahrscheinlich zuerst in den kritischen Abschnitt eintreten dürfen. Mit diesem Wissen kann nun der Ablauf wie folgt beschrieben werden\cite{VerteilteSysteme}:
+\begin{enumerate}
+    \item Ein Knoten, der in den kritischen Abschnitt eintreten will, sendet eine Nachricht (Request) mit dem Zeitstempel an alle anderen Knoten.
+    \item Erhält ein Knoten eine Nachricht, hängt die Antwort von seinem derzeitigen Zustand ab:
+    \begin{enumerate}
+        \item Befindet sich der Knoten nicht im kritischen Abschnitt und will diesen auch nicht betreten, sendet er OK zurück.
+        \item Befindet sich der Knoten im kritischen Abschnitt, speichert er die Anfrage in einer Warteschlange.
+        \item  Befindet sich der Knoten nicht im kritischen Abschnitt, will diesen jedoch betreten, dann wird der Zeitstempel der eingehenden Nachricht mit dem eigenen (aus der eigenen Nachricht) verglichen. Ist der eingehende kleiner, wird ein OK an den Sender gesendet, andernfalls kommt der Request in die Warteschlange.
+    \end{enumerate}
+    \item Hat ein Knoten von jedem anderen Knoten ein OK auf seine Anfrage erhalten, tritt er in den kritischen Abschnitt ein.
+    \item Nach dem Verlassen des kritischen Abschnitts entnimmt der Knoten die gespeicherten Anfragen aus der Warteschlange und sendet ein OK an die ursprünglichen Sender zurück.
+\end{enumerate}
+
+Durch diesen Ablauf ist sichergestellt, dass zu jedem Zeitpunkt höchstens ein Knoten im kritischen Abschnitt befindet.
+
+\section{Implementierung}
+Das Programm implementiert diesen Algorithmus und simuliert ihn in einer lokalen Umgebung, wobei die einzelnen Knoten durch Threads repräsentiert werden. Die Anzahl der Knoten kann über Kommandozeilenparameter beim Aufruf des Programm geändert werden. Sollte kein Parameter übergeben werden, wird der Standardwert von 3 verwendet. Der Algorithmus ist in 2 Klassen implementiert. Die Kommunikation zwischen den Threads erfolgt über eine Pipe, welche in pipe.h impementiert ist. Eine Nachricht wird durch die Klasse Message dargestellt.
+
+Die Nachrichten werden der Pipe über eine Funktion übergeben. Intern werden die Nachrichten in einer Warteschlange gespeichert. Die Pipe ist durch einen Mutex thread-safe. Das Entnehmen eines Wertes aus der Pipe ist ein blockierender Aufruf, der dann blockiert, wenn die Pipe leer ist. Sollte dies der Fall sein, wird durch eine Bedingungsvariable darauf gewartet, dass ein Wert in die Pipe gegeben wird. Erst wenn ein Wert aus der Pipe entnommen wurde, setzt das Programm fort. Durch diese Implementierung ist es leicht, auf einkommende Nachrichten zu hören.
+
+\subsection{Messsage-Klasse}
+Diese Klasse stellt eine Nachricht dar. Sie enthält Sowohl die Nummer des Senders als auch jene des Empfängers. Der Typ der Nachricht wird als Enum gespeichert und gibt an, ob es sich um eine Anfrage oder eine Antwort handelt, wobei im Algorithmus eine Antwort mit einer Bestätigung gleichgestellt ist.
+
+Der Wert einer Nachricht ist der Zeitstempel, den der Worker beim Erstellen des Requests festlegt.
+
+\subsection{Worker-Klasse}
+In dieser Klasse ist jener Teil des Algorithmus implementiert, der sich mit der zeitlichen Regelung befasst. Das heißt, in dieser Klasse wird durch eine Zufallsvariable zwischen 3 und 5 Sekunden festgelegt, wann der Knoten in den kritischen Abschnitt eintreten will und wie lange er in diesem verbleibt. Zur Simulation des kritischen Abschnitts wird der Thread, in dem sich der Worker befindet, schlafen gelegt. Dieser Ablauf läuft in einer Endlosschleife, so dass sich die Simulation immer wieder wiederholt.
+
+\begin{minipage}{\linewidth}
+\begin{lstlisting}[language=C++, caption=Zeitliche Regelung]
+wants_to_enter = false;
+this_thread::sleep_for(chrono::milliseconds(int (dis(gen)*1000)));
+wants_to_enter = true;
+
+chrono::system_clock::time_point timestamp{chrono::system_clock::now()};
+mh.set_enter_timestamp(timestamp);
+mh.send_to_all(MessageType::REQ, timestamp);
+
+\end{lstlisting}
+\end{minipage}
+
+Die Worker-Klasse hat zwei bool'sche Variablen, die ihren Status beschreiben. Diese zwei Variablen beschreiben, ob der Knoten in den kritischen Abschnitt eintreten will und ob er sich gerade in diesem befindet. Sie sind notwendig, um diese Information dem MessageHandler mitzuteilen. Dieser muss, je nach dem, in welchem Zustand sich der Worker befindet, die eingehenden Nachrichten anders behandeln.
+
+\subsection{MessageHandler-Klasse}
+Diese Klasse ist, als Thread gestartet, für die Verwaltung der Nachrichten eines Workers zuständig. Diese Klasse beinhaltet eine Pipe, die für die eingehenden Nachrichten verwendet wird und als "Inbox" bezeichnet wird. Um mit den anderen Knoten zu kommunizieren, hat jede Instanz der Klasse einen Vektor mit einer Referenz auf die Pipes der jeweils anderen Knoten.
+
+\begin{minipage}{\linewidth}
+\begin{lstlisting}[language=C++, caption=Inbox und Outbox]
+// Alle Nachrichten an den Worker werden in seine Inbox geschrieben
+Pipe<Message> inbox;
+
+// Enthaelt Zeiger zu den Inboxen der anderen Worker
+std::vector<Pipe<Message>*> outboxes;
+
+\end{lstlisting}
+\end{minipage}
+
+In dieser Klasse wird auch der Ablauf implementiert, wie er zuvor in \ref{ablauf} Ablauf beschrieben wurde. Der Status des Workers, also ob er in den kritischen Abschnitt eintreten will oder nicht, wird dem MessageHandler durch zwei Pointer vom Typ bool mitgeteilt. Bei jedem Durchgang dieses Ablaufs wird eine Nachricht aus der Inbox entnommen und bearbeitet. Je nach Status wird dann entweder eine Antwort gesendet, oder die Nachricht in der Warteschlange gespeichert.
+
+\section{Bedienung}
+Das Programm kann nur durch den Aufruf von \verb|./dist_sync| gestartet werden. Die Anzahl der Knoten ist dabei standardmäßig auf 3 gesetzt. Beendet wird das Programm durch Tastaturunterbrechung \verb|(Ctrl + C)|. Als Ausgabe in der Konsole erschienen verschiedene Statusmeldungen, die angeben, was derzeit im Programm passiert und welcher Knoten sich im kritischen Abschnitt befindet. In der nachfolgenden Tabelle sind alle Parameter angegeben:
+
+\begin{center}
+\begin{tabular}{ | c | c | c | p{3cm} | }
+\hline
+\textbf{Parametername} & \textbf{Datentyp} & \textbf{Standardwert} & \textbf{Beschreibung} \\
+\hline
+  & ganze Zahl >= 0 & 3 & Anzahl der Knoten  \\ \hline
+ \verb|-h, --help| &  & & Gibt die Hilfe aus \\  \hline
+ \verb|-l, --log| &  & false & Aktiviert Logging nach \verb|dist_sync_log.log| \\ \hline
+ \verb|-d, --debug| & & false & Setzt Log-Level auf debug, nur mit -l verwendbar \\
+ \hline
+\end{tabular}
+\end{center}
+
+Ein Aufruf des Programms mit 0 als Parameter ist möglich, führt jedoch dazu, dass keine Knoten erzeugt werden und sich das Programm somit wieder beendet, ohne eine Ausgabe zu erzeugen. Dieses Verhalten ist geplant und so gewollt. Sollte eine negative Zahl übergeben werden, wird eine entsprechende Fehlermeldung ausgegeben und das Programm beendet sich.
+
+\section{Probleme bei der Umsetzung}
+Die größten Schwierigkeiten bei der Umsetzung bereitete die Aufteilung der Aufgaben eines Knoten in zwei Teile. Diese Aufteilung war aus meiner Sicht jedoch notwendig, da ein Knoten, während er sich im kritischen Abschnitt befindet, immer noch auf Nachrichten reagieren muss. Dementsprechend habe ich die Aufteilung so vorgenommen, dass die Behandlung der Nachrichten in einem separaten Thread durchgeführt wird. Das Problem lag primär in der Kommunikation zwischen dem MessageHandler-Thread und dem Worker-Thread. Derzeit erfolgt die Kommunikation über Pointer und eine Bedingungsvariable.
+
+\bibliographystyle{plain}
+\bibliography{literatur}
+\end{document}
